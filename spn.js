@@ -18,20 +18,26 @@ rl.question('Enter your private key: ', (privateKey) => {
         const web3 = new Web3(new Web3.providers.HttpProvider(rpcURL));
 
         function getRandomAmount(min, max) {
-          return (Math.random() * (max - min) + min).toFixed(2);
+          return (Math.random() * (max - min) + min).toFixed(8);
         }
 
         function getRandomInterval(min, max) {
           return Math.floor(Math.random() * (max - min + 1) + min);
         }
 
-        function sendTransaction() {
+        const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+        web3.eth.accounts.wallet.add(account);
+        web3.eth.defaultAccount = account.address;
+
+        let nonce = null;
+
+        async function sendTransaction() {
+          if (nonce === null) {
+            nonce = await web3.eth.getTransactionCount(web3.eth.defaultAccount, 'latest');
+          }
+
           const amount = getRandomAmount(minAmount, maxAmount);
           const interval = getRandomInterval(minInterval, maxInterval);
-
-          const account = web3.eth.accounts.privateKeyToAccount(privateKey);
-          web3.eth.accounts.wallet.add(account);
-          web3.eth.defaultAccount = account.address;
 
           const tx = {
             from: web3.eth.defaultAccount,
@@ -39,12 +45,14 @@ rl.question('Enter your private key: ', (privateKey) => {
             value: web3.utils.toWei(amount, 'ether'),
             gas: 21000,
             gasPrice: web3.utils.toWei('1', 'gwei'),
+            nonce: nonce,
             chainId: 98985
           };
 
           web3.eth.sendTransaction(tx)
             .then(receipt => {
               console.log(`Transaction successful with hash: ${receipt.transactionHash} | Amount sent: ${amount} ETH | Next transaction in: ${interval} seconds`);
+              nonce++;  // Increment nonce for the next transaction
             })
             .catch(err => {
               console.error('Error sending transaction:', err);
